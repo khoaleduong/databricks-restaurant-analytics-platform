@@ -1,1 +1,6 @@
-0_synthetic_data/data
+# Data
+0_synthetic_data/data/
+
+# Environment variables
+.env*
+!.env.example
