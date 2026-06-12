@@ -2,7 +2,7 @@
 
 [![Project Architecture](diagrams/project_architecture.png)](diagrams/project_architecture.png)
 [![Synthetic Data Generation](diagrams/synthetic_data.png)](diagrams/synthetic_data.png)
-[![Synthetic Data Generation](diagrams/erd.png)](diagrams/synthetic_data.png)
+[![Synthetic Data Generation](diagrams/star_schema.png)](diagrams/synthetic_data.png)
 
 ## 📖 Project Overview
 
