@@ -39,12 +39,10 @@ Synthetic generators / source systems
 ```
 
 The pipeline definitions are under
-[`1_pipeline_bronze_to_gold/`](1_pipeline_bronze_to_gold/). The PNG diagrams
-are visual references. The current implementation diagram is
-[`diagrams/current_architecture.md`](diagrams/current_architecture.md). This
-flow and the table inventory below describe what is implemented today. The
-older star-schema image includes the planned restaurant Silver dimension; it is
-a logical model, not a deployment claim.
+[`1_pipeline_bronze_to_gold/`](1_pipeline_bronze_to_gold/). The current
+architecture is [`diagrams/current_architecture.md`](diagrams/current_architecture.md),
+which is the visual source of truth for the implemented pipeline. Older design
+diagrams are kept under `diagrams/archive/` for reference.
 
 ## Implementation status
 
@@ -285,5 +283,5 @@ These are deliberate portfolio scope boundaries:
 0_synthetic_data/              generators, source DDL, reference schemas
 1_pipeline_bronze_to_gold/    Bronze ingestion, Silver transformations, Gold views
 tests/                         focused local business/invariant tests
-diagrams/                      visual architecture and model references
+diagrams/                      current architecture and archived references
 ```

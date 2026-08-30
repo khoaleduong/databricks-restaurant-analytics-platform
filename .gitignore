@@ -4,8 +4,3 @@
 # Environment variables
 .env*
 !.env.example
-
-# Diagrams
-diagrams/project_architecture
-diagrams/star_schema
-diagrams/synthetic_data
