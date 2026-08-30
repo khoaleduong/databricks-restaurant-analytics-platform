@@ -53,12 +53,29 @@ The architecture follows a clean, production-ready pattern:
 | `dim_restaurants` | Cleaned restaurant dimension |
 | `dim_menu_items` | Cleaned menu dimension |
 
+`dim_customers` uses native Databricks Lakeflow AUTO CDC SCD Type 2 processing.
+The business
+key is `customer_id`; the CDC ingestion must provide `updated_at` as a monotonic
+sequence and `cdc_operation` as `INSERT`, `UPDATE`, or `DELETE`. Name, email,
+phone, and city changes create new history versions. Exact replays do not create
+new versions. Records with the same customer and sequence value are considered
+ambiguous and must be rejected by the upstream CDC ingestion because this
+repository has no trustworthy tie-breaker. Deletes close the current version
+while preserving historical versions. Lakeflow Connect setup is external to
+this repository. The external ingestion configuration maps its connector/source
+metadata into the canonical Bronze contract; the physical source metadata names
+may differ by connector configuration. SQL Server Change Tracking alone is not
+the SCD2 feed contract: the ingestion must provide an ordered CDC change stream
+with inserts, updates, and deletes. The current customer-360 output reads the
+current Silver SCD2 row (`__END_AT IS NULL`) and therefore does not join against
+all historical versions; deleted customers have no current row.
+
 #### Gold Layer Details
 
 | Table | Purpose |
 |-------|---------|
 | `d_sales_summary` | Daily sales KPIs (revenue, orders, avg order value) |
-| `d_customer_360` | 360° customer profile with loyalty tier and churn risk |
+| `d_customer_360` | Customer profile with loyalty tier and VIP flag |
 | `d_restaurant_reviews` | Restaurant performance with rating distribution and sentiment counts |
 
 ### 4. Orchestration & Governance
@@ -84,5 +101,7 @@ The architecture follows a clean, production-ready pattern:
 | **AI & Analytics** | Mosaic AI (Sentiment Analysis), Databricks AI/BI Dashboards |
 | **Languages** | Python, SQL, PySpark |
 | **Other Tools** | Faker (Data Generation), dotenv, Azure Event Hubs SDK |
+
+The implemented `d_customer_360` output uses an `is_vip` flag; churn-risk scoring is not part of this version.
 
 ---

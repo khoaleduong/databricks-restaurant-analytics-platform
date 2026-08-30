@@ -1,3 +1,5 @@
+-- Reference schema only. Gold tables are created by the materialized-view definitions under 1_pipeline_bronze_to_gold/gold/.
+
 CREATE TABLE `03_gold`.d_sales_summary (
     order_date DATE PRIMARY KEY,
     total_orders BIGINT,
@@ -8,7 +10,7 @@ CREATE TABLE `03_gold`.d_sales_summary (
     dine_in_orders BIGINT,
     takeaway_orders BIGINT,
     delivery_orders BIGINT
-)
+);
 
 CREATE TABLE `03_gold`.d_customer_360 (
     customer_id STRING,
@@ -17,7 +19,7 @@ CREATE TABLE `03_gold`.d_customer_360 (
     city STRING,
     loyalty_tier STRING,
     join_date DATE,
-    total_orders BIGINT, 
+    total_orders BIGINT,
     lifetime_spend DECIMAL(12,2),
     avg_order_value DECIMAL(10,2),
     last_order_date DATE,
@@ -25,8 +27,8 @@ CREATE TABLE `03_gold`.d_customer_360 (
     favorite_item STRING,
     avg_rating_given DECIMAL(3,2),
     total_reviews BIGINT,
-    is_at_risk BOOLEAN,  -- No order in 90+ days
-)
+    is_vip BOOLEAN
+);
 
 CREATE TABLE `03_gold`.d_restaurant_reviews (
     restaurant_id STRING PRIMARY KEY,
@@ -42,4 +44,4 @@ CREATE TABLE `03_gold`.d_restaurant_reviews (
     sentiment_positive_count BIGINT,
     sentiment_neutral_count BIGINT,
     sentiment_negative_count BIGINT
-)
+);

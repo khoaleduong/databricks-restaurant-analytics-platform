@@ -7,7 +7,13 @@ from pyspark.sql.window import Window
     table_properties={"quality": "gold"}
 )
 def d_customer_360():
-    df_customers = dp.read("01_bronze.customers")
+    # Customer 360 is a current-state product. Filter the native AUTO CDC SCD2
+    # dimension to its current version before joining any customer aggregates.
+    # Deleted customers have no current row and are therefore excluded.
+    df_customers = (
+        dp.read("02_silver.dim_customers")
+        .filter(F.col("__END_AT").isNull())
+    )
     df_restaurants = dp.read("01_bronze.restaurants")
     df_orders = dp.read("02_silver.fact_orders")
     df_order_items = dp.read("02_silver.fact_order_items")

@@ -2,7 +2,7 @@ from pyspark import pipelines as dp
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 
-@dp.table(name="02_silver_fact_order_items")
+@dp.table(name="02_silver.fact_order_items")
 @dp.expect_all_or_drop({
     "valid_order_id": "order_id IS NOT NULL",
     "valid_order_timestamp": "order_timestamp IS NOT NULL",
@@ -14,31 +14,14 @@ from pyspark.sql.types import *
 })
 def fact_order_items():
 
-    items_schema = ArrayType(
-        StructType([
-            StructField("item_id", StringType()),
-            StructField("name", StringType()),
-            StructField("category", StringType()),
-            StructField("quantity", IntegerType()),
-            StructField("unit_price", DecimalType(10, 2)),
-            StructField("subtotal", DecimalType(10, 2)),
-        ])
-    )
-
     df = (
         dp.read_stream("01_bronze.orders")
 
         # standardize timestamp
         .withColumn("order_timestamp", F.to_timestamp("order_timestamp"))
 
-        # parse JSON items
-        .withColumn("items_parsed", F.from_json("items", items_schema))
-
-        # filter bad JSON
-        .filter(F.col("items_parsed").isNotNull())
-
         # explode items
-        .withColumn("item", F.explode("items_parsed"))
+        .withColumn("item", F.explode("items"))
 
         # derive date
         .withColumn("order_date", F.to_date("order_timestamp"))

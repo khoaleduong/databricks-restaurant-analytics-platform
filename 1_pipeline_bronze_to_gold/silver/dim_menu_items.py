@@ -19,8 +19,8 @@ def v_menu_items_cdc_clean():
         .select("item_id", "restaurant_id", "name", "category", "price", "is_vegetarian", "updated_at", "cdc_operation")
     )
 
-# Apply changes (Upsert) based on Lakeflow CDC
-dp.apply_changes(
+# Apply changes (upsert) with the current Lakeflow AUTO CDC API
+dp.create_auto_cdc_flow(
     target="02_silver.dim_menu_items",
     source="v_menu_items_cdc_clean",
     keys=["item_id"],

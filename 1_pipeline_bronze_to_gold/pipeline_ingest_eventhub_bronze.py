@@ -1,6 +1,6 @@
 from pyspark import pipelines as dp
-from pyspark.sql.types import *
-from pyspark.sql.functions import *
+from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StringType, StructField, StructType
+from pyspark.sql.functions import col, from_json
 
 EH_NAMESPACE = spark.conf.get("eh.namespace")
 EH_NAME = spark.conf.get("eh.name")
@@ -25,7 +25,18 @@ orders_schema = StructType([
     StructField("restaurant_id", StringType(), True),
     StructField("customer_id", StringType(), True),
     StructField("order_type", StringType(), True),
-    StructField("items", StringType(), True),
+    StructField(
+        "items",
+        ArrayType(StructType([
+            StructField("item_id", StringType(), True),
+            StructField("name", StringType(), True),
+            StructField("category", StringType(), True),
+            StructField("quantity", IntegerType(), True),
+            StructField("unit_price", DoubleType(), True),
+            StructField("subtotal", DoubleType(), True),
+        ])),
+        True,
+    ),
     StructField("total_amount", DoubleType(), True),
     StructField("payment_method", StringType(), True),
     StructField("order_status", StringType(), True)

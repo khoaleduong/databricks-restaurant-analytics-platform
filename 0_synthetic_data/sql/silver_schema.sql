@@ -1,3 +1,6 @@
+-- Reference schema only. The Databricks Declarative Pipeline decorators under
+-- 1_pipeline_bronze_to_gold/ are the executable table definitions.
+
 -- FACT TABLES
 CREATE TABLE IF NOT EXISTS `02_silver`.fact_orders (
     order_id STRING PRIMARY KEY,
@@ -12,9 +15,8 @@ CREATE TABLE IF NOT EXISTS `02_silver`.fact_orders (
     item_count INT,
     total_amount DECIMAL(10,2),
     payment_method STRING,
-    order_status STRING,
-    _ingestion_timestamp TIMESTAMP
-)
+    order_status STRING
+);
 
 CREATE TABLE IF NOT EXISTS `02_silver`.fact_order_items (
     order_id STRING,
@@ -27,9 +29,8 @@ CREATE TABLE IF NOT EXISTS `02_silver`.fact_order_items (
     quantity INT,
     unit_price DECIMAL(10,2),
     subtotal DECIMAL(10,2),
-    _ingestion_timestamp TIMESTAMP,
     PRIMARY KEY (order_id, item_id)
-)
+);
 
 CREATE TABLE IF NOT EXISTS `02_silver`.fact_reviews (
     review_id STRING PRIMARY KEY,
@@ -38,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `02_silver`.fact_reviews (
     restaurant_id STRING,
     rating INT,
     review_text STRING,
-    analysis_json TODO: ,
+    analysis_json STRING,
     sentiment STRING, -- positive, neutral, negative
     issue_delivery BOOLEAN,
     issue_delivery_reason STRING,
@@ -48,9 +49,8 @@ CREATE TABLE IF NOT EXISTS `02_silver`.fact_reviews (
     issue_pricing_reason STRING,
     issue_portion_size BOOLEAN,
     issue_portion_size_reason STRING,
-    review_timestamp TIMESTAMP,
-    _ingestion_timestamp TIMESTAMP
-)
+    review_timestamp TIMESTAMP
+);
 
 -- DIMENSION TABLES
 CREATE TABLE IF NOT EXISTS `02_silver`.dim_menu_items (
@@ -80,5 +80,5 @@ CREATE TABLE IF NOT EXISTS `02_silver`.dim_customers (
   email STRING,
   phone STRING,
   city STRING,
-  join_date STRING
+  join_date DATE
 );

@@ -2,7 +2,7 @@ from pyspark import pipelines as dp
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 
-@dp.table(name="02_silver_fact_orders")
+@dp.table(name="02_silver.fact_orders")
 @dp.expect_all_or_drop({
     "valid_order_id": "order_id IS NOT NULL",
     "valid_order_timestamp": "order_timestamp IS NOT NULL",
@@ -14,17 +14,6 @@ from pyspark.sql.types import *
     "valid_amount": "total_amount > 0"
 })
 def fact_orders():
-
-    items_schema = ArrayType(
-        StructType([
-            StructField("item_id", StringType()),
-            StructField("name", StringType()),
-            StructField("category", StringType()),
-            StructField("quantity", IntegerType()),
-            StructField("unit_price", DecimalType(10, 2)),
-            StructField("subtotal", DecimalType(10, 2)),
-        ])
-    )
 
     df_fact_orders = (
         dp.read_stream("01_bronze.orders")
@@ -46,11 +35,8 @@ def fact_orders():
             ).otherwise(False)
         )
 
-        # parse items JSON
-        .withColumn("items_parsed", F.from_json(F.col("items"), items_schema))
-
         # item count
-        .withColumn("item_count", F.size(F.col("items_parsed")))
+        .withColumn("item_count", F.size(F.col("items")))
 
         # select final columns
         .select(
