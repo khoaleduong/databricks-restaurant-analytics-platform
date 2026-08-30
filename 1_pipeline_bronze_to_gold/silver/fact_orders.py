@@ -15,18 +15,22 @@ from pyspark.sql.types import *
 })
 def fact_orders():
 
+    # One row per immutable order (order_id). Bronze stays replayable; Silver
+    # deduplicates for analytics.
     df_fact_orders = (
         dp.read_stream("01_bronze.orders")
 
-        # standardize timestamp
         .withColumn("order_timestamp", F.to_timestamp(F.col("order_timestamp")))
 
-        # derive time columns
+        # Event time is UTC. The 1-day watermark is a demo assumption, not a
+        # measured SLA.
+        .withWatermark("order_timestamp", "1 day")
+        .dropDuplicatesWithinWatermark(["order_id"])
+
         .withColumn("order_date", F.to_date(F.col("order_timestamp")))
         .withColumn("order_hour", F.hour(F.col("order_timestamp")))
         .withColumn("day_of_week", F.date_format(F.col("order_timestamp"), "EEEE"))
 
-        # weekend flag
         .withColumn(
             "is_weekend",
             F.when(
@@ -35,10 +39,8 @@ def fact_orders():
             ).otherwise(False)
         )
 
-        # item count
         .withColumn("item_count", F.size(F.col("items")))
 
-        # select final columns
         .select(
             "order_id",
             "order_timestamp",

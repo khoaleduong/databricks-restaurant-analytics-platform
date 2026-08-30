@@ -2,6 +2,7 @@ from pyspark import pipelines as dp
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 from datetime import datetime
+from business_rules import REALIZED_ORDER_STATUSES
 
 
 @dp.materialized_view(
@@ -11,8 +12,13 @@ from datetime import datetime
     comment="Gold layer aggregates with date-based overwrites",
 )
 def d_sales_summary():
+    # Only delivered and completed orders count as realized sales.
+    df_realized_orders = dp.read("02_silver.fact_orders").filter(
+        F.col("order_status").isin(*REALIZED_ORDER_STATUSES)
+    )
+
     df_daily_agg = (
-        dp.read("02_silver.fact_orders")
+        df_realized_orders
         .groupBy("order_date")
         .agg(
             F.countDistinct("order_id").alias("total_orders"),

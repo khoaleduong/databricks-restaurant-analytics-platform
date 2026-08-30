@@ -1,4 +1,4 @@
--- Reference schema only. Gold tables are created by the materialized-view definitions under 1_pipeline_bronze_to_gold/gold/.
+-- Reference schema. Gold tables are created by the pipeline files.
 
 CREATE TABLE `03_gold`.d_sales_summary (
     order_date DATE PRIMARY KEY,

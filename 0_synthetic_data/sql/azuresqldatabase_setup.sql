@@ -1,4 +1,4 @@
--- Azure SQL source setup. Replace SCHEMA_NAME and DB_NAME before execution.
+-- Azure SQL setup. Replace SCHEMA_NAME and DB_NAME before running.
 
 CREATE TABLE SCHEMA_NAME.historical_orders (
     order_id VARCHAR(256) PRIMARY KEY,
@@ -56,13 +56,11 @@ CREATE TABLE SCHEMA_NAME.restaurants (
 -- Now run projects/databricks-e2e-project/sql/utility_script.sql
 -- https://docs.databricks.com/aws/en/ingestion/lakeflow-connect/sql-server-utility
 --
--- The SQL source tables below do not contain updated_at or cdc_operation.
--- Those fields are required by the Silver SCD2 pipeline and must be supplied
--- by the separately configured Lakeflow Connect CDC ingestion. This repository
--- does not provision that connector or assert its physical metadata names.
--- SQL Server Change Tracking and SQL Server CDC are different mechanisms:
--- Change Tracking identifies changed keys, while the AUTO CDC contract here
--- requires an ordered change stream with operation and sequence information.
+-- These source tables do not contain updated_at or cdc_operation.
+-- External CDC ingestion must map its sequence and operation fields to this
+-- Bronze contract. This repo does not configure that connector.
+-- Change Tracking identifies changed keys. SQL Server CDC supplies the ordered
+-- insert/update/delete stream required by the AUTO CDC flow.
 
 ALTER DATABASE DB_NAME SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS, AUTO_CLEANUP = ON);
 

@@ -14,19 +14,20 @@ from pyspark.sql.types import *
 })
 def fact_order_items():
 
+    # One row per (order_id, item_id). Deduplicate the order before exploding
+    # items so a replay cannot duplicate item rows.
     df = (
         dp.read_stream("01_bronze.orders")
 
-        # standardize timestamp
         .withColumn("order_timestamp", F.to_timestamp("order_timestamp"))
 
-        # explode items
+        .withWatermark("order_timestamp", "1 day")
+        .dropDuplicatesWithinWatermark(["order_id"])
+
         .withColumn("item", F.explode("items"))
 
-        # derive date
         .withColumn("order_date", F.to_date("order_timestamp"))
 
-        # select + flatten
         .select(
             "order_id",
             "restaurant_id",

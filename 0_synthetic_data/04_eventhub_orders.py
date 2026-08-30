@@ -2,39 +2,45 @@ import os
 import json
 import random
 import time
-from datetime import datetime
-from azure.eventhub import EventHubProducerClient, EventData
-import pandas as pd
+from datetime import datetime, timezone
 
-from dotenv import load_dotenv
-load_dotenv()   
-
-EVENTHUB_CONNECTION_STRING = os.getenv("EVENTHUB_CONNECTION_STRING")
-EVENTHUB_NAME = os.getenv("EVENTHUB_NAME")
-
-
-# Load data
+# Load reference data lazily so generation can run without cloud credentials.
 script_dir = os.path.dirname(os.path.abspath(__file__))
-df_restaurants = pd.read_csv(os.path.join(script_dir, "data", "restaurants.csv"))
-df_customers = pd.read_csv(os.path.join(script_dir, "data", "customers.csv"))
-df_menu_items = pd.read_csv(os.path.join(script_dir, "data", "menu_items.csv"))
-
-RESTAURANTS = df_restaurants['restaurant_id'].tolist()
-CUSTOMERS = df_customers['customer_id'].tolist()
-MENU_BY_RESTAURANT = df_menu_items.groupby('restaurant_id').apply(
-    lambda x: x.to_dict('records')
-).to_dict()
+RESTAURANTS = []
+CUSTOMERS = []
+MENU_BY_RESTAURANT = {}
 
 ORDER_TYPES = ["dine_in", "takeaway", "delivery"]
 PAYMENT_METHODS = ["cash", "card", "wallet"]
 ORDER_STATUSES = ["pending", "confirmed", "preparing", "ready", "delivered"]
 
-def generate_order():
-    order_date = datetime.utcnow()
-    restaurant_id = random.choice(RESTAURANTS)
-    customer_id = random.choice(CUSTOMERS)
+def load_reference_data():
+    import pandas as pd
+
+    df_restaurants = pd.read_csv(os.path.join(script_dir, "data", "restaurants.csv"))
+    df_customers = pd.read_csv(os.path.join(script_dir, "data", "customers.csv"))
+    df_menu_items = pd.read_csv(os.path.join(script_dir, "data", "menu_items.csv"))
+
+    return (
+        df_restaurants["restaurant_id"].tolist(),
+        df_customers["customer_id"].tolist(),
+        df_menu_items.groupby("restaurant_id").apply(
+            lambda x: x.to_dict("records")
+        ).to_dict(),
+    )
+
+
+def generate_order(restaurants=None, customers=None, menu_by_restaurant=None):
+    # Each message is one immutable order; order_id identifies it.
+    if restaurants is None or customers is None or menu_by_restaurant is None:
+        restaurants, customers, menu_by_restaurant = load_reference_data()
+
+    order_date = datetime.now(timezone.utc).replace(microsecond=0)
+    order_timestamp = order_date.isoformat().replace("+00:00", "Z")
+    restaurant_id = random.choice(restaurants)
+    customer_id = random.choice(customers)
     
-    menu_items = MENU_BY_RESTAURANT[restaurant_id]
+    menu_items = menu_by_restaurant[restaurant_id]
     num_items = random.randint(1, min(5, len(menu_items)))
     selected_items = random.sample(menu_items, num_items)
     
@@ -59,7 +65,7 @@ def generate_order():
     
     return {
         "order_id": order_id,
-        "timestamp": order_date.isoformat() + "Z",
+        "timestamp": order_timestamp,
         "restaurant_id": restaurant_id,
         "customer_id": customer_id,
         "order_type": random.choice(ORDER_TYPES),
@@ -67,16 +73,26 @@ def generate_order():
         "total_amount": round(total_amount, 2),
         "payment_method": random.choice(PAYMENT_METHODS),
         "order_status": random.choice(ORDER_STATUSES),
-        "created_at": order_date.isoformat() + "Z"
+        "created_at": order_timestamp
     }
 
 def stream_to_eventhub(interval_seconds=3, max_orders=30):
+    from azure.eventhub import EventHubProducerClient, EventData
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    eventhub_connection_string = os.getenv("EVENTHUB_CONNECTION_STRING")
+    eventhub_name = os.getenv("EVENTHUB_NAME")
+
+    global RESTAURANTS, CUSTOMERS, MENU_BY_RESTAURANT
+    RESTAURANTS, CUSTOMERS, MENU_BY_RESTAURANT = load_reference_data()
+
     producer = EventHubProducerClient.from_connection_string(
-        conn_str=EVENTHUB_CONNECTION_STRING,
-        eventhub_name=EVENTHUB_NAME
+        conn_str=eventhub_connection_string,
+        eventhub_name=eventhub_name
     )
     
-    print(f"\n\nStreaming to Event Hub: {EVENTHUB_NAME}")
+    print(f"\n\nStreaming to Event Hub: {eventhub_name}")
     order_count = 0
     
     try:

@@ -1,23 +1,21 @@
 from pyspark import pipelines as dp
 import pyspark.sql.functions as F
 
-# SCD Type 2 contract
-# - Business key: customer_id (from the Azure SQL source table)
-# - Sequence: updated_at, supplied by the externally configured CDC ingestion
-# - History attributes: descriptive customer fields that may change over time
-# - cdc_operation and updated_at are connector/ingestion contract fields; this
-#   repository does not provision Lakeflow Connect or define their source shape.
-# - The CDC source must reject ambiguous records with the same customer_id and
-#   updated_at because no trustworthy tie-breaker is present in this repository.
-# - Exact replays are safe: AUTO CDC only creates a new SCD2 version when
-#   a tracked attribute changes.
+# Customer SCD2 contract:
+# - customer_id is the business key.
+# - updated_at orders changes and must come from external CDC ingestion.
+# - name, email, phone, and city are historized.
+# - cdc_operation and updated_at are Bronze contract fields; this repo does
+#   not configure Lakeflow Connect.
+# - The source must reject conflicting records with the same key and sequence.
+# - Replaying an unchanged record does not create a new version.
 dp.create_streaming_table(
     name="02_silver.dim_customers",
     comment="Customer Dimension table with history tracking (SCD Type 2) synced via Lakeflow Connect",
     table_properties={"quality": "silver"}
 )
 
-# Read the incremental CDC logs from the Bronze table populated by Lakeflow Connect
+# Read the CDC feed mapped into the Bronze contract.
 @dp.view(name="v_customers_cdc_clean")
 @dp.expect_all_or_drop({
     "valid_customer_id": "customer_id IS NOT NULL",
@@ -27,7 +25,7 @@ dp.create_streaming_table(
 })
 def v_customers_cdc_clean():
     return (
-        # Using read_stream to read Delta transaction logs incrementally, NOT Kafka streaming
+        # This is a Delta stream, not a Kafka source.
         dp.read_stream("01_bronze.customers")
         
         .withColumn("name", F.trim(F.col("name")))
@@ -38,9 +36,7 @@ def v_customers_cdc_clean():
         .select("customer_id", "name", "email", "phone", "city", "join_date", "updated_at", "cdc_operation")
     )
 
-# Apply CDC changes to the Silver table with the current Lakeflow AUTO CDC API.
-# Deletes close the current version; historical versions remain queryable through
-# the native SCD2 history columns.
+# AUTO CDC closes the current version on delete and keeps historical versions.
 dp.create_auto_cdc_flow(
     target="02_silver.dim_customers",
     source="v_customers_cdc_clean",

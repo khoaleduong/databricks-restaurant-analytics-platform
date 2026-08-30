@@ -1,21 +1,23 @@
 from pyspark import pipelines as dp
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
+from business_rules import REALIZED_ORDER_STATUSES
 
 @dp.materialized_view(
     name="03_gold.d_customer_360",
     table_properties={"quality": "gold"}
 )
 def d_customer_360():
-    # Customer 360 is a current-state product. Filter the native AUTO CDC SCD2
-    # dimension to its current version before joining any customer aggregates.
-    # Deleted customers have no current row and are therefore excluded.
+    # Customer 360 uses the current customer row; deleted customers have none.
     df_customers = (
         dp.read("02_silver.dim_customers")
         .filter(F.col("__END_AT").isNull())
     )
     df_restaurants = dp.read("01_bronze.restaurants")
-    df_orders = dp.read("02_silver.fact_orders")
+    # Use the same realized-order rule as sales: delivered and completed only.
+    df_orders = dp.read("02_silver.fact_orders").filter(
+        F.col("order_status").isin(*REALIZED_ORDER_STATUSES)
+    )
     df_order_items = dp.read("02_silver.fact_order_items")
     df_reviews = dp.read("02_silver.fact_reviews")
 
@@ -42,8 +44,20 @@ def d_customer_360():
     df_fav_restaurant = (
         df_orders
         .groupBy("customer_id", "restaurant_id")
-        .agg(F.countDistinct("order_id").alias("order_ct"))
-        .withColumn("rn", F.row_number().over(Window.partitionBy("customer_id").orderBy(F.desc("order_ct"))))
+        .agg(
+            F.countDistinct("order_id").alias("order_ct"),
+            F.max("order_timestamp").alias("last_order_timestamp"),
+        )
+        .withColumn(
+            "rn",
+            F.row_number().over(
+                Window.partitionBy("customer_id").orderBy(
+                    F.desc("order_ct"),
+                    F.desc("last_order_timestamp"),
+                    F.asc("restaurant_id"),
+                )
+            ),
+        )
         .filter(F.col("rn") == 1)
         .join(df_restaurants, "restaurant_id", "left")
         .select(F.col("customer_id"), F.col("name").alias("favorite_restaurant"))
@@ -51,9 +65,21 @@ def d_customer_360():
 
     df_fav_item = (
         df_orders.join(df_order_items, "order_id", "inner")
-        .groupBy(df_orders.customer_id, df_order_items.item_name)
-        .agg(F.sum("quantity").alias("item_qty"))
-        .withColumn("rn", F.row_number().over(Window.partitionBy("customer_id").orderBy(F.desc("item_qty"))))
+        .groupBy(df_orders.customer_id, df_order_items.item_id, df_order_items.item_name)
+        .agg(
+            F.sum("quantity").alias("item_qty"),
+            F.max(df_orders.order_timestamp).alias("last_order_timestamp"),
+        )
+        .withColumn(
+            "rn",
+            F.row_number().over(
+                Window.partitionBy("customer_id").orderBy(
+                    F.desc("item_qty"),
+                    F.desc("last_order_timestamp"),
+                    F.asc("item_id"),
+                )
+            ),
+        )
         .filter(F.col("rn") == 1)
         .select("customer_id", F.col("item_name").alias("favorite_item"))
     )
@@ -71,23 +97,19 @@ def d_customer_360():
             df_customers.city,
             F.to_date(F.col("join_date")).alias("join_date"),
 
-            # Order Stats
             F.coalesce(F.col("total_orders"), F.lit(0)).cast("bigint").alias("total_orders"),
             F.coalesce(F.col("lifetime_spend"), F.lit(0)).cast("decimal(10,2)").alias("lifetime_spend"),
             F.coalesce(F.col("avg_order_value"), F.lit(0)).cast("decimal(10,2)").alias("avg_order_value"),
             F.col("last_order_date"),
             
-            # Loyalty Tier
             F.when(F.col("lifetime_spend") >= 5000, "Platinum")
             .when(F.col("lifetime_spend") >= 2000, "Gold")
             .when(F.col("lifetime_spend") >= 500, "Silver")
             .otherwise("Bronze").alias("loyalty_tier"),
             
-            # Preferences
             F.col("favorite_restaurant"),
             F.col("favorite_item"),
             
-            # Review Stats
             F.coalesce(F.col("avg_rating_given"), F.lit(0)).cast("decimal(10,2)").alias("avg_rating_given"),
             F.coalesce(F.col("total_reviews"), F.lit(0)).cast("bigint").alias("total_reviews"),
             

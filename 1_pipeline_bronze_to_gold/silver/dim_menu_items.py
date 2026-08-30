@@ -1,14 +1,14 @@
 from pyspark import pipelines as dp
 import pyspark.sql.functions as F
 
-# Initialize the target Silver table for SCD Type 1
+# Silver keeps the latest menu-item state (SCD1).
 dp.create_streaming_table(
     name="02_silver.dim_menu_items",
     comment="Menu Items Dimension table keeping only the latest state (SCD Type 1) via Lakeflow Connect",
     table_properties={"quality": "silver"}
 )
 
-# Read the incremental CDC logs from Bronze
+# Read the CDC feed from Bronze.
 @dp.view(name="v_menu_items_cdc_clean")
 @dp.expect_or_drop("valid_item", "item_id IS NOT NULL AND price > 0")
 def v_menu_items_cdc_clean():
@@ -19,7 +19,7 @@ def v_menu_items_cdc_clean():
         .select("item_id", "restaurant_id", "name", "category", "price", "is_vegetarian", "updated_at", "cdc_operation")
     )
 
-# Apply changes (upsert) with the current Lakeflow AUTO CDC API
+# Apply the CDC feed with AUTO CDC.
 dp.create_auto_cdc_flow(
     target="02_silver.dim_menu_items",
     source="v_menu_items_cdc_clean",

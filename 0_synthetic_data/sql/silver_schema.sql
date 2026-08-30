@@ -1,5 +1,4 @@
--- Reference schema only. The Databricks Declarative Pipeline decorators under
--- 1_pipeline_bronze_to_gold/ are the executable table definitions.
+-- Reference schema. The pipeline files create the runtime tables.
 
 -- FACT TABLES
 CREATE TABLE IF NOT EXISTS `02_silver`.fact_orders (

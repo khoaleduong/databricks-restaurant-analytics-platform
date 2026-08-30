@@ -1,6 +1,6 @@
 CREATE OR REFRESH STREAMING TABLE `02_silver`.fact_reviews (
   CONSTRAINT valid_sentiment EXPECT (sentiment IN ('positive', 'neutral', 'negative')) ON VIOLATION DROP ROW,
-  CONSTRAINT non_negative_rating EXPECT (rating >= 0) ON VIOLATION DROP ROW
+  CONSTRAINT valid_rating EXPECT (rating BETWEEN 1 AND 5) ON VIOLATION DROP ROW
 )
 AS
 SELECT 
